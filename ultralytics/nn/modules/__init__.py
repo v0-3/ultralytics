@@ -93,6 +93,7 @@ from .head import (
     YOLOESegment26,
     v10Detect,
 )
+from .lmw import DWRBottleneck, LKABottleneck, LKCA, MSDP
 from .transformer import (
     AIFI,
     MLP,
@@ -160,9 +161,12 @@ __all__ = (
     "ImagePoolingAttn",
     "Index",
     "LRPCHead",
+    "LKABottleneck",
+    "LKCA",
     "LayerNorm2d",
     "LightConv",
     "MLPBlock",
+    "MSDP",
     "MSDeformAttn",
     "MaxSigmoidAttnBlock",
     "Pose",
@@ -182,6 +186,7 @@ __all__ = (
     "TransformerBlock",
     "TransformerEncoderLayer",
     "TransformerLayer",
+    "DWRBottleneck",
     "WorldDetect",
     "YOLOEDetect",
     "YOLOESegment",
