@@ -15,6 +15,6 @@ Placeholder page for the planned YOLO26-LMW variant tracked in [the local execut
 - [x] Milestone 2 add LKCA/MSDP modules and parser registration
 - [x] Milestone 3 add `yolo26-lmw.yaml`
 - [x] Milestone 4 run YOLO26-LMW smoke training and export
-- [ ] Milestone 5 add optional WIoU v3 box loss
+- [x] Milestone 5 add optional WIoU v3 box loss
 - [ ] Milestone 6 add dataset scripts and templates
 - [ ] Milestone 7 add training recipes and fuller model documentation
