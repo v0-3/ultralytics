@@ -8,6 +8,7 @@ import uuid
 from contextlib import redirect_stderr, redirect_stdout
 from itertools import product
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import torch
@@ -16,6 +17,7 @@ from tests import MODEL, SOURCE
 from ultralytics import YOLO
 from ultralytics.cfg import TASK2DATA, TASK2MODEL, TASKS
 from ultralytics.utils import ARM64, IS_DOCKER, IS_RASPBERRYPI, LINUX, MACOS, MACOS_VERSION, WINDOWS, checks
+from ultralytics.engine.exporter import ensure_onnx_ml_dtypes_compat, get_onnx_requirements
 from ultralytics.utils.export.engine import torch2onnx
 from ultralytics.utils.torch_utils import TORCH_1_10, TORCH_1_11, TORCH_1_13, TORCH_2_0, TORCH_2_1, TORCH_2_8, TORCH_2_9
 
@@ -32,6 +34,29 @@ def test_export_onnx(end2end):
     """Test YOLO model export to ONNX format with dynamic axes."""
     file = YOLO(MODEL).export(format="onnx", dynamic=True, imgsz=32, end2end=end2end)
     YOLO(file)(SOURCE, imgsz=32)  # exported model inference
+
+
+def test_get_onnx_requirements_uses_python_313_macos_pin():
+    """Use the wheel-backed ONNX range on macOS Python 3.13."""
+    assert get_onnx_requirements(is_macos=True, is_python_3_13=True) == ["onnx>=1.18.0,<1.19.0"]
+
+
+def test_get_onnx_requirements_adds_simplify_deps():
+    """Keep simplify extras layered onto the ONNX requirement selection."""
+    requirements = get_onnx_requirements(simplify=True, is_macos=False, is_python_3_13=False, cuda_available=False)
+
+    assert requirements == ["onnx>=1.12.0,<2.0.0", "onnxslim>=0.1.71", "onnxruntime"]
+
+
+def test_ensure_onnx_ml_dtypes_compat_adds_missing_aliases():
+    """Backfill the missing ml_dtypes symbols used by ONNX 1.19 on Python 3.13."""
+    ml_dtypes = SimpleNamespace(float8_e4m3fn=object(), float8_e5m2=object())
+
+    added = ensure_onnx_ml_dtypes_compat(ml_dtypes_module=ml_dtypes)
+
+    assert added == ["float4_e2m1fn", "float8_e8m0fnu"]
+    assert ml_dtypes.float4_e2m1fn is ml_dtypes.float8_e4m3fn
+    assert ml_dtypes.float8_e8m0fnu is ml_dtypes.float8_e5m2
 
 
 def test_torch2onnx_serializes_concurrent_exports(monkeypatch, tmp_path):

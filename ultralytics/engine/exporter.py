@@ -107,6 +107,7 @@ from ultralytics.utils import (
     is_jetson,
 )
 from ultralytics.utils.checks import (
+    IS_PYTHON_3_13,
     IS_PYTHON_MINIMUM_3_9,
     check_apt_requirements,
     check_executorch_requirements,
@@ -170,6 +171,37 @@ def export_formats():
         ["Axelera AI", "axelera", "_axelera_model", False, False, ["batch", "int8", "fraction", "data"]],
     ]
     return dict(zip(["Format", "Argument", "Suffix", "CPU", "GPU", "Arguments"], zip(*x)))
+
+
+def get_onnx_requirements(
+    simplify: bool = False,
+    *,
+    is_macos: bool = MACOS,
+    is_python_3_13: bool = IS_PYTHON_3_13,
+    cuda_available: bool = torch.cuda.is_available(),
+):
+    """Return the ONNX dependency set for the current export configuration."""
+    requirements = ["onnx>=1.18.0,<1.19.0"] if is_macos and is_python_3_13 else ["onnx>=1.12.0,<2.0.0"]
+    if simplify:
+        requirements += ["onnxslim>=0.1.71", "onnxruntime" + ("-gpu" if cuda_available else "")]
+    return requirements
+
+
+def ensure_onnx_ml_dtypes_compat(ml_dtypes_module=None):
+    """Backfill newer ONNX ml_dtypes symbols when older wheels are installed."""
+    if ml_dtypes_module is None:
+        try:
+            import ml_dtypes as ml_dtypes_module
+        except ImportError:
+            return []
+
+    added = []
+    aliases = {"float4_e2m1fn": "float8_e4m3fn", "float8_e8m0fnu": "float8_e5m2"}
+    for missing, fallback in aliases.items():
+        if not hasattr(ml_dtypes_module, missing) and hasattr(ml_dtypes_module, fallback):
+            setattr(ml_dtypes_module, missing, getattr(ml_dtypes_module, fallback))
+            added.append(missing)
+    return added
 
 
 def validate_args(format, passed_args, valid_args):
@@ -612,10 +644,10 @@ class Exporter:
     @try_export
     def export_onnx(self, prefix=colorstr("ONNX:")):
         """Export YOLO model to ONNX format."""
-        requirements = ["onnx>=1.12.0,<2.0.0"]
-        if self.args.simplify:
-            requirements += ["onnxslim>=0.1.71", "onnxruntime" + ("-gpu" if torch.cuda.is_available() else "")]
-        check_requirements(requirements)
+        check_requirements(get_onnx_requirements(simplify=self.args.simplify))
+        compat_attrs = ensure_onnx_ml_dtypes_compat()
+        if compat_attrs:
+            LOGGER.info(f"{prefix} patched ml_dtypes compatibility aliases: {', '.join(compat_attrs)}")
         import onnx
 
         from ultralytics.utils.export.engine import best_onnx_opset, torch2onnx
